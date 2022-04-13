@@ -19,7 +19,8 @@ def run_query(query):
         cur.execute(query)
         return cur.fetchall()
 
-rows = run_query("SELECT * FROM PUBLIC.accommodations WHEN is_superhost = true;")
+rows = run_query('''SELECT * FROM PUBLIC.accommodations 
+                 WHEN is_superhost = true;''')
 
 # Print results.
 for row in rows:
