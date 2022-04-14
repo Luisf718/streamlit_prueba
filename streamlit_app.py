@@ -2,6 +2,7 @@
 
 import streamlit as st
 import psycopg2
+from psycopg2 import Error
 
 # Initialize connection.
 # Uses st.experimental_singleton to only run once.
