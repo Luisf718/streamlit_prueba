@@ -9,18 +9,29 @@ import psycopg2
 def init_connection():
     return psycopg2.connect(**st.secrets["postgres"])
 
-conn = init_connection()
 
 # Perform query.
 # Uses st.experimental_memo to only rerun when the query changes or after 10 min.
 @st.experimental_memo(ttl=600)
-def run_query(query):
-    with conn.cursor() as cur:
-        cur.execute(query)
-        return cur.fetchall()
+try:
+  connection = init_connection()
+  #Creamos el cursor para las operaciones de la base de datos
+  cursor = connection.cursor()
+  #Creamos una variable con el codigo sql que queremos que se ejecute
+  select_query = ''' SELECT * 
+  FROM PUBLIC.landlords
+  WHERE id > 500;'''
+  #Executamos el comando
+  cursor.execute(select_query)
+  connection.commit()
+  #con la funcion fetchall() podemos ver lo que retornaria la base de datos 
+  st.write("Result ", cursor.fetchall())
 
-rows = run_query("SELECT * FROM PUBLIC.landlords;")
-
-# Print results.
-for row in rows:
-    st.write(row)
+#Por si la conexion no fue exitosa
+except (Exception, Error) as error:
+  print("Error while connecting to PostgreSQL", error)
+finally:
+  if (connection):
+    cursor.close()
+    connection.close()
+    print("PostgreSQL connection is closed")
