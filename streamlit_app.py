@@ -10,9 +10,6 @@ def init_connection():
     return psycopg2.connect(**st.secrets["postgres"])
 
 
-# Perform query.
-# Uses st.experimental_memo to only rerun when the query changes or after 10 min.
-@st.experimental_memo(ttl=600)
 try:
   connection = init_connection()
   #Creamos el cursor para las operaciones de la base de datos
