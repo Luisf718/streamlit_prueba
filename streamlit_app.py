@@ -23,7 +23,8 @@ try:
   cursor.execute(select_query)
   connection.commit()
   #con la funcion fetchall() podemos ver lo que retornaria la base de datos 
-  st.write("Result ", cursor.fetchall())
+  result = (cursor.fetchall())
+  st.write(result)
 
 #Por si la conexion no fue exitosa
 except (Exception, Error) as error:
