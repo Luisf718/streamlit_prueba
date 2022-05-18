@@ -39,8 +39,8 @@ ORDER BY a.id;'''
   plt.xlabel('Ciudad')
   plt.ylabel('Visitas')
   plt.title('TOP 5 visitas por ciudad')
-  plt.show()
-#   st.write()
+  st.write("Hola mundo")
+  st.write(plt.show())
 
 #Por si la conexion no fue exitosa
 except (Exception, Error) as error:
