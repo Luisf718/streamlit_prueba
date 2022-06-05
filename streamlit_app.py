@@ -1,52 +1,141 @@
 # streamlit_app.py
 
-import streamlit as st
+import pandas as pd
 import psycopg2
-from psycopg2 import Error
+import plotly.express as px
+import streamlit as st
 
-# Initialize connection.
-# Uses st.experimental_singleton to only run once.
-@st.experimental_singleton
-def init_connection():
-    return psycopg2.connect(**st.secrets["postgres"])
+st.set_page_config(page_title="Booking Visualization",
+                   page_icon=":bar_chart:",
+                   layout="wide"
+                  )
 
+#Global Constants
+PSQL_HOST = "ec2-54-165-184-219.compute-1.amazonaws.com"
+PSQL_PORT = "5432"
+PSQL_USER = "xouugvjvpdqxzl"
+PSQL_PASS = "0cfc12f2ea32b36baffa66379813f12ea2e1a18b65b01224249f90875ce63137"
+PSQL_DB = "duminr7s43tjt"
 
-try:
-  connection = init_connection()
-  #Creamos el cursor para las operaciones de la base de datos
-  cursor = connection.cursor()
-  #Creamos una variable con el codigo sql que queremos que se ejecute
-  select_query = ''' SELECT *
-FROM PUBLIC.accommodations a
-JOIN PUBLIC.cities c ON c.id = a.id_city
-ORDER BY a.id;'''
-  #Executamos el comando
-  cursor.execute(select_query)
-  connection.commit()
-  df = pd.read_sql_query(select_query,connection)
-  #con la funcion fetchall() podemos ver lo que retornaria la base de datos 
-# results = (cursor.fetchall())
-  #Agrupamos por el nombre de las ciudades y sumamos las visitas que han tenido por toda la ciudad
-  df_groupby_ciudad_visitas = df.groupby(by='name')['number_of_visits'].agg([sum, min, max])
-  #Reseteamos los index para que 'name' se ponga como columna y no se quede en indice
-  df_groupby_ciudad_visitas = df_groupby_ciudad_visitas.reset_index()
-  #Ordenamos el df por el 'sum' para que esten ordenados del que tiene mas visitas al que tiene menos
-  df_groupby_ciudad_visitas = df_groupby_ciudad_visitas.sort_values('sum', ascending=False)
-  
-  x = df_groupby_ciudad_visitas['name'][:5]
-  y = df_groupby_ciudad_visitas['sum'][:5]
-  plt.bar(x, y, color='red')
-  plt.xlabel('Ciudad')
-  plt.ylabel('Visitas')
-  plt.title('TOP 5 visitas por ciudad')
-  st.write("Hola mundo")
-  st.write(plt.show())
+#Connection
+connection_address = """
+host=%s port=%s user=%s password=%s dbname=%s
+""" % (PSQL_HOST, PSQL_PORT, PSQL_USER, PSQL_PASS, PSQL_DB)
+connection = psycopg2.connect(connection_address)
 
-#Por si la conexion no fue exitosa
-except (Exception, Error) as error:
-  print("Error while connecting to PostgreSQL", error)
-finally:
-  if (connection):
-#     cursor.close()
-    connection.close()
-    print("PostgreSQL connection is closed")
+#Query
+query_users = """SELECT
+                public.users.first_name as "Primer Nombre",
+                public.users.last_name as "Apellido",
+                public.users.gender as "Genero",
+                public.users.birth_day as "Cumpleaños",
+                public.countries.country as "País",
+                public.states.states as "Estado",
+                public.property_types.property_type as "Propiedad Preferida"
+            FROM public.users
+                LEFT JOIN
+                    public.countries
+                ON
+                    public.users.country = public.countries.id
+                
+                LEFT JOIN
+                    public.states
+                ON
+                    public.users.states = public.states.id
+                
+                LEFT JOIN
+                    public.property_types
+                ON
+                    public.users.property_preference = public.property_types.id
+                
+            ORDER BY public.users.id ASC LIMIT 100;"""
+
+#Total reservations by confirmed----------------------------------------------------------------------------
+quey_total_reservations_by_confirmed ="""SELECT public.booking.confirmed as "Confirmación", COUNT(*) As Total
+                                         FROM public.booking
+                                         GROUP BY public.booking.confirmed;"""
+
+total_reservations_by_confirmed = pd.read_sql_query(quey_total_reservations_by_confirmed, con=connection)
+
+total_reservations = int(total_reservations_by_confirmed["total"].sum())
+
+#Reservations by Month confirmed --------------------------------------------------------------------------------------------
+
+query_total_reservations_by_month_confirmed ="""SELECT TO_CHAR(public.booking.reservation_date, 'Month') as "mes", COUNT(*) As "reserva confirmada"
+                                                FROM public.booking
+                                                WHERE public.booking.confirmed = true
+                                                GROUP BY "mes";"""
+
+total_reservations_by_month_confirmed = pd.read_sql_query(query_total_reservations_by_month_confirmed, con=connection)
+
+#Reservations by Month unconfirmed --------------------------------------------------------------------------------------------
+
+query_total_reservations_by_month_unconfirmed ="""SELECT TO_CHAR(public.booking.reservation_date, 'Month') as "mes", COUNT(*) As "reserva no confirmada"
+                                                FROM public.booking
+                                                WHERE public.booking.confirmed = false
+                                                GROUP BY "mes";"""
+
+total_reservations_by_month_unconfirmed = pd.read_sql_query(query_total_reservations_by_month_unconfirmed, con=connection)
+
+#Preference property--------------------------------------------------------------------------------------------
+
+#prueba = pd.read_sql_query(query_users, con=connection)
+
+# ---- MAINPAGE ----
+st.title(":bar_chart: Bookng visualization")
+
+st.markdown("##")
+
+column_1, column_2 = st.columns(2)
+
+with column_1:
+    st.subheader("Total reservatios: ")
+    st.subheader(f"{total_reservations}")
+
+with column_2:
+    st.subheader("Reservatios average by confirm: ")
+    st.subheader(round(total_reservations_by_confirmed['total'].mean(),2))
+
+st.markdown("---")
+
+#Graph reservations by confirmation
+fig_total_reservations_by_confirmed = px.bar(
+    total_reservations_by_confirmed,
+    x = "total",
+    y = "Confirmación",
+    orientation = "h",
+    title = "<b>Total Places by country</b>",
+    color_discrete_sequence = ["#0083B8"] * len(total_reservations_by_confirmed),
+    template = "plotly_white",
+)
+
+fig_total_reservations_confirmed = px.line(
+    total_reservations_by_month_confirmed,
+    x = "mes",
+    y = "reserva confirmada",
+    markers = True
+)
+
+fig_total_reservations_confirmed.update_layout(plot_bgcolor = "rgba(229,236,246,255)")
+
+fig_total_reservations_unconfirmed = px.line(
+    total_reservations_by_month_unconfirmed,
+    x = "mes",
+    y = "reserva no confirmada",
+    markers = True
+)
+
+fig_total_reservations_unconfirmed.update_layout(plot_bgcolor = "rgba(229,236,246,255)")
+
+st.plotly_chart(fig_total_reservations_by_confirmed)
+
+column_graph_1, column_graph_2 = st.columns(2)
+
+with column_graph_1:
+    st.subheader("Rerservas confirmadas por mes")
+
+with column_graph_2:
+    st.subheader("Rerservas sin confirmar por mes")
+
+column_graph_1.plotly_chart(fig_total_reservations_confirmed, use_container_width = True)
+column_graph_2.plotly_chart(fig_total_reservations_unconfirmed, use_container_width = True)
