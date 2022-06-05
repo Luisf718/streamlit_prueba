@@ -224,10 +224,6 @@ property_rating = pd.read_sql_query(quey_property_rating, con=connection)
 
 #prueba = pd.read_sql_query(query_users, con=connection)
 
-st.set_page_config(page_title="Places Visualization",
-                   page_icon=":bar_chart:",
-                   layout="wide"
-                  )
 
 st.title(":bar_chart: Places visualization")
 st.markdown("##")
@@ -287,10 +283,6 @@ import psycopg2
 import plotly.express as px
 import streamlit as st
 
-st.set_page_config(page_title="USERS SCOPE - Visualization",
-                   page_icon=":bar_chart:",
-                   layout="wide"
-                  )
 
 #Global Constants
 PSQL_HOST = "ec2-54-165-184-219.compute-1.amazonaws.com"
